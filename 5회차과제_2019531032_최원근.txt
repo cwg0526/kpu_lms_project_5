@@ -56,3 +56,65 @@ savepoint b;
 UPDATE salaries set salary = 1000 where emp_no = 1001;
 rollback to b;
 rollback to a;
+
+CREATE INDEX emp_index_1 ON `employees`(uid, name);
+SELECT * FROM USER_INDEXES WHERE TABLE_NAME = 'employees';
+
+CREATE VIEW CHECK_LOGIN_VIEW AS select uid, password from `employees`;
+SELECT uidm FROM CHECK_LOGIN_VIEW WHERE uid=’user’, password=’pw’;
+
+CREATE VIEW CHECK_WORKDAY_VIEW (UID, NAME, JOINDAY, WORKDAYS) AS select uid,
+name, joinday, to_date( NOW() - Date(joinday) ) from `employees`;
+
+DROP VIEW CHECK_LOGIN_VIEW;
+DROP VIEW CHECK_WORKDAY_VIEW;
+
+SELECT uid, name, workplace, salary, from_date, to_date
+FROM `employees` t1, `salaries` t2
+WHERE t1.uid = t2.emp_no;
+
+SELECT uid, name, workplace, salary, from_date, to_date
+FROM `employees` t1, `salaries` t2
+WHERE t1.uid = t2.emp_no AND t1.uid IN (SELECT uid FROM `employees`);
+
+CREATE OR REPLACE PROCEDURE SALES_CLOSNG ? 매출마감처리
+(V_CLOSING_DATE IN CHAR(8)) -- 마감일자
+IS
+BEGIN
+V_SALES_TOT_AMT NUMBERS; -- 매출총액
+SELECT SUM(SALES_AMT) -- 매출액
+ INTO V_SALES_TOT_AMT
+FROM SALES_LIST_T -- 판매내역
+WHERE SALES_DATE = V_CLOSING_DATE; -- 판매일자
+EXCEPTION
+ WHEN NO_DATA_FOUND THEN -- 데이터 미존재시
+ SET V_SALES_TOT_AMT = 0; -- 매출총액에 0 입력
+INSERT INTO -- 삽입
+SALES_CLOSED_T -- 마감내역 TABLE
+(SALES_DATE, SALES_TOT_AMT)
+VALUES(V_CLOSING_DATE, V_DALES_TOT_AMT);
+EXCEPTION
+WHEN NO_DATA_FOUND THEN -- 데이터 미존재시
+ SET SALES_TOT_AMT = 0;
+COMMIT;
+END;
+
+EXECUTE SALES_CLOSING(‘20190418’);
+
+CREATE OR REPLACE FUNCTION GET_AGE
+(V_BIRTH_DATE IN CHAR(8))
+IS
+BEGIN
+V_CURRENT_YEAR CHAR(4); -- 현재 연도
+V_BIRTH_YEAR CHAR(4); -- 생년
+V_AGE NUMBER; -- 나이
+SELECT TO_CHAR(SYSDATE,'YYYY') -- 현재 일자에서 년도만 추출
+, SUBSTR(V_BIRTH_DATE,1,4) -- 생년월일에서 앞 4자리 추출
+INTO V_CURRENT_YEAR -- 현재 년도(4자리)
+, V_BIRTH_YEAR -- 생년월일 년도(4자리)
+FROM DUAL ;
+SET AGE = TO_NUMBER(V_CURRENT_YEAR) - TO_NUMBER(V_BIRTH_YEAR) + 1; -- 현재 연도와 생년의 차에 1을 더함
+RETURN AGE; -- 나이를 반환
+END;
+
+SELECT GET_AGE('19900101') FROM DUAL;
